@@ -1,5 +1,8 @@
 from fastapi import FastAPI, Path, HTTPException, Query
+from fastapi.responses import JSONResponse
 import json
+
+from update import Patient
 
 
 # api obejct
@@ -12,6 +15,10 @@ def load_data():
         data=json.load(f)
 
     return data
+
+def save_data(data):
+    with open("my_petients.json","w") as f:
+        json.dump(data,f)
 
 
 
@@ -69,3 +76,22 @@ def sort_petient(sort_by=Query(..., description="Sort on the basis of height, we
     sorted_data=sorted(data.values(),key=lambda x: x.get(sort_by,0), reverse=sort_order)
 
     return sorted_data
+
+@app.post('/create')
+def create_patient(patient: Patient):
+
+    data=load_data()
+
+    if patient.id in data:
+        raise HTTPException(status_code=400, detail="Patient with this ID already exists")
+    
+    data[patient.id]=patient.model_dump(exclude=['id']) # convert patient object to dict
+
+
+    save_data(data)
+
+    return JSONResponse(content={"message":"Patient created successfully"}, status_code=201)
+
+
+
+
