@@ -1,0 +1,60 @@
+from pydantic import BaseModel, EmailStr, model_validator
+from typing import List, Dict
+
+class Patient(BaseModel):
+
+    name: str
+    email: EmailStr
+    age: int
+    weight: float
+    married: bool
+    allergies: List[str]
+    contact_details: Dict[str, str]
+
+    # @model_validator runs on the ENTIRE model — not just one field
+    # mode='after' means all fields have already been validated and coerced
+    # So here we get access to the fully built model object (self/model)
+    # This is useful when validation logic depends on MULTIPLE fields together
+    @model_validator(mode='after')
+    def validate_emergency_contact(cls, model):
+
+        # Cross-field validation: checking 'age' and 'contact_details' together
+        # If patient is older than 60, they MUST have an 'emergency' key in contact_details
+        if model.age > 60 and 'emergency' not in model.contact_details:
+            raise ValueError('Patients older than 60 must have an emergency contact')
+
+        # If validation passes, return the model object as-is
+        return model
+
+
+def update_patient_data(patient: Patient):
+    print(patient.name)        # 'Abdul Rehman'
+    print(patient.age)         # 65 (coerced from string '65')
+    print(patient.allergies)   # ['pollen', 'dust']
+    print(patient.married)     # True
+    print('updated')
+
+
+# age is 65 (> 60), so 'emergency' key MUST be present in contact_details
+# Here it IS present → validation passes
+# If you remove 'emergency' from contact_details → ValidationError will be raised
+patient_info = {
+    'name': 'Abdul Rehman',
+    'email': 'xyz@icici.com',
+    'age': '65',                # String → coerced to int 65 by Pydantic first, then model_validator runs
+    'weight': 75.2,
+    'married': True,
+    'allergies': ['pollen', 'dust'],
+    'contact_details': {
+        'phone': '2353462',
+        'emergency': '235236'   # This key satisfies the model_validator condition for age > 60
+    }
+}
+
+# Execution order internally:
+# 1. Individual field type coercion (str '65' → int 65)
+# 2. Individual field_validators (if any)
+# 3. model_validator(mode='after') → runs last with the complete model
+patient1 = Patient(**patient_info)
+
+update_patient_data(patient1)
